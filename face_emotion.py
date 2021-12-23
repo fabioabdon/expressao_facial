@@ -16,9 +16,11 @@ from numpy import inf
 from numpy import asarray
 from numpy import expand_dims
 from keras.applications.vgg16 import preprocess_input
+from std_msgs.msg import String
+import time
 
 from keras.models import load_model
-vgg16 = load_model('/home/fabio/catkin_ws/src/facial_expression/my_model.h5') # VGGFace network weights
+vgg16 = load_model('/home/ubuntu/catkin_ws/src/facial_expression/my_model.h5') # VGGFace network weights
 vgg16._make_predict_function()
 
 # Define function to visualize predictions
@@ -51,7 +53,7 @@ required_size=(224, 224)
 rospy.init_node('opencv_example', anonymous=True)
 # Initialize the CvBridge class
 bridge = CvBridge()
-BodyClassif = cv2.CascadeClassifier('/home/fabio/catkin_ws/src/facial_expression/haarcascade_frontalface_default.xml') # Viola-Jones pre trained classifier
+BodyClassif = cv2.CascadeClassifier('/home/ubuntu/catkin_ws/src/facial_expression/haarcascade_frontalface_default.xml') # Viola-Jones pre trained classifier
 
 # Define a callback for the Image message
 def image_callback(img_msg):
@@ -80,17 +82,36 @@ def image_callback(img_msg):
 
             try:
                 pub.publish(bridge.cv2_to_imgmsg(rostro, "bgr8"))
+
+		os.system('cls' if os.name == 'nt' else 'clear')
+		from PIL import Image
+		image = Image.fromarray(rostro)
+		image = image.resize(required_size)
+		vector1 = asarray(image)
+		print("Emotion detected: ")		
+		print(visualize_predictions(vector1))
+
+		emotion_pub = rospy.Publisher('facial_emotion', String, queue_size=10)
+		end_time = time.time() + 1
+		countTimer = 0
+		sleepTime = 0.500
+		while time.time() < end_time:
+		    emotion_pub.publish(visualize_predictions(vector1))
+		    rospy.sleep(0.01)
+
             except CvBridgeError as e:
                 print(e)
+
     
         cv2.imshow("Image window",frame)
         cv2.waitKey(1)
 
 # Initalize a subscriber to the "/camera/rgb/image_raw" topic with the function "image_callback" as a callback
-sub_image = rospy.Subscriber("/usb_cam/image_raw", Image, image_callback)
+sub_image = rospy.Subscriber("/pepper/camera/front/image_raw", Image, image_callback)
 pub = rospy.Publisher('Body', Image)
 
 # Loop to keep the program from shutting down unless ROS is shut down, or CTRL+C is pressed
 while not rospy.is_shutdown():
   
     rospy.spin()
+
